@@ -1,0 +1,59 @@
+name: Build OpenComposite
+
+on:
+  push:
+    tags: ["v*"]
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  VULKAN_SDK_VERSION: 1.3.296.0
+
+jobs:
+  build:
+    runs-on: windows-2022
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache Vulkan SDK
+        id: vulkan-cache
+        uses: actions/cache@v4
+        with:
+          path: C:\VulkanSDK\${{ env.VULKAN_SDK_VERSION }}
+          key: vulkan-sdk-${{ env.VULKAN_SDK_VERSION }}
+
+      - name: Install Vulkan SDK
+        if: steps.vulkan-cache.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $v = $env:VULKAN_SDK_VERSION
+          $installer = "$env:RUNNER_TEMP\VulkanSDK-$v-Installer.exe"
+          Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/$v/windows/VulkanSDK-$v-Installer.exe" -OutFile $installer
+          Start-Process -FilePath $installer -ArgumentList @("--accept-licenses", "--default-answer", "--confirm-command", "install") -Wait -NoNewWindow
+          if (-not (Test-Path "C:\VulkanSDK\$v\Lib\vulkan-1.lib")) { throw "Vulkan SDK install failed" }
+
+      - name: Build
+        shell: pwsh
+        run: |
+          $version = if ($env:GITHUB_REF_TYPE -eq "tag") { $env:GITHUB_REF_NAME } else { $env:GITHUB_SHA.Substring(0, 7) }
+          .\build.ps1 -VulkanSdk "C:\VulkanSDK\$env:VULKAN_SDK_VERSION" -Version $version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opencomposite_x64
+          path: |
+            build/out/opencomposite_x64.dll
+            build/out/opencomposite_x64.dll.sha256
+          if-no-files-found: error
+
+      - name: Release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $notes = "OpenComposite upstream $(Get-Content UPSTREAM_COMMIT) plus patches/ in this repo.`n`n``````n$(Get-Content build/out/opencomposite_x64.dll.sha256)`n``````"
+          gh release create $env:GITHUB_REF_NAME build/out/opencomposite_x64.dll build/out/opencomposite_x64.dll.sha256 --title $env:GITHUB_REF_NAME --notes $notes
