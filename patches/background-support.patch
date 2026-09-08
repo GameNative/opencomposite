@@ -1,3 +1,15 @@
+diff --git a/DrvOpenXR/XrHMD.cpp b/DrvOpenXR/XrHMD.cpp
+index ffeab79..d2fe55c 100644
+--- a/DrvOpenXR/XrHMD.cpp
++++ b/DrvOpenXR/XrHMD.cpp
+@@ -9,6 +9,7 @@
+ #include "../OpenOVR/Reimpl/BaseSystem.h"
+ #include "../OpenOVR/convert.h"
+ #include "generated/static_bases.gen.h"
++#include <chrono>
+ #include <thread>
+ #include <mutex>
+ 
 diff --git a/OCOVR/openvr_api.cpp b/OCOVR/openvr_api.cpp
 index a49444a..3401468 100644
 --- a/OCOVR/openvr_api.cpp
