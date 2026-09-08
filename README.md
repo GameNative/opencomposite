@@ -6,7 +6,7 @@ Every release is built by GitHub Actions on a Windows runner from the upstream c
 
 ## Patches
 
-- `background-support.patch`: on Windows, `VR_Init` with `VRApplication_Background` returns `VRInitError_Init_NoServerForBackgroundApp` instead of aborting. GameNative embeds OpenComposite in each Wine process and has no shared vrserver, so helper processes that use the background app type must not open a competing OpenXR session. Also drops the ATL dependency so the build works without the ATL workload.
+- `background-support.patch`: on Windows, `VR_Init` with `VRApplication_Background` returns `VRInitError_Init_NoServerForBackgroundApp` instead of aborting. GameNative embeds OpenComposite in each Wine process and has no shared vrserver, so helper processes that use the background app type must not open a competing OpenXR session. Also adds the `<chrono>` include current MSVC needs to compile `XrHMD.cpp`.
 
 ## Releasing
 
