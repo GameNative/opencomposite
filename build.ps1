@@ -9,6 +9,9 @@ param(
 $ErrorActionPreference = "Stop"
 $commit = (Get-Content -LiteralPath (Join-Path $PSScriptRoot "UPSTREAM_COMMIT")).Trim()
 $patch = Join-Path $PSScriptRoot "patches\background-support.patch"
+$interfacePatch = Join-Path $PSScriptRoot "patches\openvr-2.15.6-interfaces.patch"
+$openvrHeaderCommit = "0924064316de3effbcd1acf1e309182a2deb1c05"
+$openvrHeaderSha256 = "1e6ed57199896cc1f7c5484e50fa18955e97be15be690beb28d998c877ead7fd"
 $marker = "Ignoring VRApplication_Background: no shared OpenVR server is available"
 $source = Join-Path $WorkDirectory "source"
 $build = Join-Path $WorkDirectory "cmake-$Arch"
@@ -44,6 +47,11 @@ git -C $source apply --check $patch
 if ($LASTEXITCODE -ne 0) { throw "The patch no longer applies to $commit" }
 git -C $source apply $patch
 if ($LASTEXITCODE -ne 0) { throw "Could not apply the patch" }
+git -C $source apply $interfacePatch
+if ($LASTEXITCODE -ne 0) { throw "Could not apply the OpenVR 2.15.6 interface patch" }
+$openvrHeader = Join-Path $source "OpenVRHeaders\openvr-2.15.6.h"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/ValveSoftware/openvr/$openvrHeaderCommit/headers/openvr.h" -OutFile $openvrHeader
+if ((Get-FileHash -Algorithm SHA256 -LiteralPath $openvrHeader).Hash.ToLowerInvariant() -ne $openvrHeaderSha256) { throw "OpenVR 2.15.6 header checksum mismatch" }
 
 $bundledVulkan = Join-Path $source "libs\vulkan"
 New-Item -ItemType Directory -Force -Path (Join-Path $bundledVulkan "Include"), (Join-Path $bundledVulkan $libDir) | Out-Null
