@@ -1,0 +1,42 @@
+diff --git a/OpenOVR/Reimpl/BaseInput.cpp b/OpenOVR/Reimpl/BaseInput.cpp
+index 8f33037..9683d0c 100644
+--- a/OpenOVR/Reimpl/BaseInput.cpp
++++ b/OpenOVR/Reimpl/BaseInput.cpp
+@@ -1300,6 +1300,19 @@ EVRInputError BaseInput::UpdateActionState(VR_ARRAY_COUNT(unSetCount) VRActiveAc
+ 	// TODO if the game is using legacy input, call this every frame
+ 
+ 	OOVR_FALSE_ABORT(sizeof(*pSets) == unSizeOfVRSelectedActionSet_t);
++	{
++		static int gnSetLogs = 0;
++		if (gnSetLogs < 20 || (gnSetLogs % 2000) == 0) {
++			std::string names;
++			for (uint32_t i = 0; i < unSetCount; i++) {
++				ActionSet* as = cast_ASH(pSets[i].ulActionSet);
++				names += as ? as->fullName : std::string("?");
++				names += " ";
++			}
++			OOVR_LOGF("GNDBG UpdateActionState count=%u sets=%s", unSetCount, names.c_str());
++		}
++		gnSetLogs++;
++	}
+ 
+ 	// Make sure all the ActionSets have the same priority, since we don't have any way around that right now
+ 	if (unSetCount > 1) {
+@@ -1899,6 +1912,17 @@ EVRInputError BaseInput::GetPoseActionData(VRActionHandle_t action, ETrackingUni
+ 		break;
+ 	}
+ 
++	{
++		static int gnPoseLogs = 0;
++		if (gnPoseLogs < 80 || (gnPoseLogs % 2000) == 0) {
++			const auto& m = pActionData->pose.mDeviceToAbsoluteTracking.m;
++			OOVR_LOGF("GNDBG pose %s origin=%d restrict=%llu active=%d valid=%d connected=%d pos=%.3f,%.3f,%.3f fwd=%.3f,%.3f,%.3f",
++			    act->fullName.c_str(), (int)eOrigin, (unsigned long long)ulRestrictToDevice, (int)pActionData->bActive,
++			    (int)pActionData->pose.bPoseIsValid, (int)pActionData->pose.bDeviceIsConnected,
++			    m[0][3], m[1][3], m[2][3], -m[0][2], -m[1][2], -m[2][2]);
++		}
++		gnPoseLogs++;
++	}
+ 	return VRInputError_None;
+ }
+ 
