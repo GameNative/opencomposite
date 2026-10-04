@@ -1,5 +1,5 @@
 diff --git a/OpenOVR/Reimpl/BaseApplications.cpp b/OpenOVR/Reimpl/BaseApplications.cpp
-index 614daca..f2fdc43 100644
+index 614daca..fe2ec2e 100644
 --- a/OpenOVR/Reimpl/BaseApplications.cpp
 +++ b/OpenOVR/Reimpl/BaseApplications.cpp
 @@ -177,3 +177,8 @@ uint32_t BaseApplications::GetCurrentSceneProcessId()
@@ -7,12 +7,12 @@ index 614daca..f2fdc43 100644
  	STUBBED();
  }
 +
-+EVRApplicationError BaseApplications::RegisterSubprocess(uint32_t nPid)
++BaseApplications::EVRApplicationError BaseApplications::RegisterSubprocess(uint32_t nPid)
 +{
 +	return VRApplicationError_None;
 +}
 diff --git a/OpenOVR/Reimpl/BaseApplications.h b/OpenOVR/Reimpl/BaseApplications.h
-index e69e741..9785e83 100644
+index e69e741..b67f007 100644
 --- a/OpenOVR/Reimpl/BaseApplications.h
 +++ b/OpenOVR/Reimpl/BaseApplications.h
 @@ -211,4 +211,6 @@ public:
@@ -20,10 +20,36 @@ index e69e741..9785e83 100644
  	 * type. */
  	uint32_t GetCurrentSceneProcessId();
 +
-+	vr::EVRApplicationError RegisterSubprocess(uint32_t nPid);
++	EVRApplicationError RegisterSubprocess(uint32_t nPid);
  };
+diff --git a/OpenOVR/Reimpl/BaseChaperoneSetup.cpp b/OpenOVR/Reimpl/BaseChaperoneSetup.cpp
+index 42cc309..61b08a6 100644
+--- a/OpenOVR/Reimpl/BaseChaperoneSetup.cpp
++++ b/OpenOVR/Reimpl/BaseChaperoneSetup.cpp
+@@ -119,7 +119,7 @@ bool BaseChaperoneSetup::ImportFromBufferToWorking(const char* pBuffer, uint32_t
+ {
+ 	STUBBED();
+ }
+-void BaseChaperoneSetup::SetWorkingPerimeter(VR_ARRAY_COUNT(unPointCount) HmdVector2_t* pPointBuffer, uint32_t unPointCount)
++void BaseChaperoneSetup::SetWorkingPerimeter(VR_ARRAY_COUNT(unPointCount) const HmdVector2_t* pPointBuffer, uint32_t unPointCount)
+ {
+ 	STUBBED();
+ }
+diff --git a/OpenOVR/Reimpl/BaseChaperoneSetup.h b/OpenOVR/Reimpl/BaseChaperoneSetup.h
+index a2fba31..19a5572 100644
+--- a/OpenOVR/Reimpl/BaseChaperoneSetup.h
++++ b/OpenOVR/Reimpl/BaseChaperoneSetup.h
+@@ -77,7 +77,7 @@ public:
+ 	bool ImportFromBufferToWorking(const char* pBuffer, uint32_t nImportFlags);
+ 
+ 	/** Sets the Collision Bounds in the working copy. */
+-	void SetWorkingPerimeter(VR_ARRAY_COUNT(unPointCount) vr::HmdVector2_t* pPointBuffer, uint32_t unPointCount);
++	void SetWorkingPerimeter(VR_ARRAY_COUNT(unPointCount) const vr::HmdVector2_t* pPointBuffer, uint32_t unPointCount);
+ 
+ 	/** Shows the chaperone data in the working set to preview in the compositor.*/
+ 	void ShowWorkingSetPreview();
 diff --git a/OpenOVR/Reimpl/BaseCompositor.cpp b/OpenOVR/Reimpl/BaseCompositor.cpp
-index da173a8..fab3195 100644
+index da173a8..7616f91 100644
 --- a/OpenOVR/Reimpl/BaseCompositor.cpp
 +++ b/OpenOVR/Reimpl/BaseCompositor.cpp
 @@ -600,3 +600,10 @@ ovr_enum_t BaseCompositor::GetPosesForFrame(uint32_t unPosePredictionID, Tracked
@@ -31,22 +57,35 @@ index da173a8..fab3195 100644
  	STUBBED();
  }
 +
-+ovr_enum_t BaseCompositor::GetSubmitTexture(vr::Texture_t* pOutTexture, bool* pNeedsFlush, ovr_enum_t eUsage, const vr::Texture_t* pTexture,
++ovr_enum_t BaseCompositor::GetSubmitTexture(vr::Texture_t* pOutTexture, bool* pNeedsFlush, OOVR_EVRCompositorTextureUsage eUsage, const vr::Texture_t* pTexture,
 +    const vr::VRTextureBounds_t* pBounds, vr::EVRSubmitFlags nSubmitFlags)
 +{
 +	// No shared submit texture: callers fall back to Submit().
 +	return VRCompositorError_RequestFailed;
 +}
 diff --git a/OpenOVR/Reimpl/BaseCompositor.h b/OpenOVR/Reimpl/BaseCompositor.h
-index 458cc6a..119d566 100644
+index 458cc6a..073e457 100644
 --- a/OpenOVR/Reimpl/BaseCompositor.h
 +++ b/OpenOVR/Reimpl/BaseCompositor.h
-@@ -364,4 +364,7 @@ public:
+@@ -74,6 +74,12 @@ struct OOVR_Compositor_CumulativeStats {
+ 	uint32_t m_nNumReprojectedFramesTimedOut;
+ };
+ 
++enum OOVR_EVRCompositorTextureUsage {
++	VRCompositorTextureUsage_Left = 0,
++	VRCompositorTextureUsage_Right = 1,
++	VRCompositorTextureUsage_Both = 2,
++};
++
+ enum OOVR_EVRCompositorTimingMode {
+ 	VRCompositorTimingMode_Implicit = 0,
+ 	VRCompositorTimingMode_Explicit_RuntimePerformsPostPresentHandoff = 1,
+@@ -364,4 +370,7 @@ public:
  
  	/** Get the most up-to-date predicted (or recorded - up to 100ms old) set of poses for a given frame id. */
  	ovr_enum_t GetPosesForFrame(uint32_t unPosePredictionID, vr::TrackedDevicePose_t* pPoseArray, uint32_t unPoseArrayCount);
 +
-+	ovr_enum_t GetSubmitTexture(vr::Texture_t* pOutTexture, bool* pNeedsFlush, ovr_enum_t eUsage, const vr::Texture_t* pTexture,
++	ovr_enum_t GetSubmitTexture(vr::Texture_t* pOutTexture, bool* pNeedsFlush, OOVR_EVRCompositorTextureUsage eUsage, const vr::Texture_t* pTexture,
 +	    const vr::VRTextureBounds_t* pBounds = nullptr, vr::EVRSubmitFlags nSubmitFlags = vr::Submit_Default);
  };
 diff --git a/OpenOVR/Reimpl/BaseInput.cpp b/OpenOVR/Reimpl/BaseInput.cpp
@@ -68,17 +107,19 @@ index 1091a21..8f33037 100644
 +	return VRInputError_NoData;
 +}
 diff --git a/OpenOVR/Reimpl/BaseInput.h b/OpenOVR/Reimpl/BaseInput.h
-index 09286c4..3ecf6d8 100644
+index 09286c4..5f20078 100644
 --- a/OpenOVR/Reimpl/BaseInput.h
 +++ b/OpenOVR/Reimpl/BaseInput.h
-@@ -867,4 +867,7 @@ private:
+@@ -363,6 +363,9 @@ public:
  	 */
- 	void checkIfActionsMustBeDiscoveredFromSteam();
- 	bool triedDiscoveringManifest = false;
-+
+ 	EVRInputError GetBindingVariant(vr::VRInputValueHandle_t ulDevicePath, char* pchVariantArray, uint32_t unVariantArraySize);
+ 
 +	vr::EVRInputError GetEyeTrackingDataForNextFrame(vr::VRActionHandle_t action, vr::ETrackingUniverseOrigin eOrigin, vr::VREyeTrackingData_t* pEyeTrackingData, uint32_t ulEyeTrackingDataSize);
 +	vr::EVRInputError GetEyeTrackingDataRelativeToNow(vr::VRActionHandle_t action, vr::ETrackingUniverseOrigin eOrigin, float fPredictedSecondsFromNow, vr::VREyeTrackingData_t* pEyeTrackingData, uint32_t ulEyeTrackingDataSize);
- };
++
+ public: // INTERNAL FUNCTIONS
+ 	/**
+ 	 * Bind all the inputs to the current OpenXR session. This must be called after swapping the session to keep
 diff --git a/OpenOVR/Reimpl/BaseOverlay.cpp b/OpenOVR/Reimpl/BaseOverlay.cpp
 index f095f4e..c6d6760 100644
 --- a/OpenOVR/Reimpl/BaseOverlay.cpp
@@ -216,6 +257,19 @@ index d0e0a5d..f425085 100644
  
  #include "generated/GVRSystem.gen.h"
  
+diff --git a/scripts/libparse.py b/scripts/libparse.py
+index 03100a8..c7ca6d8 100644
+--- a/scripts/libparse.py
++++ b/scripts/libparse.py
+@@ -9,7 +9,7 @@ regex = re.compile(regex_src)
+ arg_src = r"(?P<type>[^=]+ \**)(?P<name>\w+)(?: = (?P<default>.*))?"
+ argr = re.compile(arg_src)
+ 
+-typedecl = re.compile(r"^(?:enum|struct)\s+(?P<name>\w+)$")
++typedecl = re.compile(r"^(?:enum(?:\s+class)?|struct)\s+(?P<name>\w+)(?:\s*:\s*\w+)?$")
+ 
+ typedef = re.compile(r"^typedef\s+(?P<def>[\w\s\d_\*&]+)\s+(?P<name>\w+);$")
+ typedef_struct = re.compile(r"^typedef\s+(?:struct|union)$")
 diff --git a/scripts/split_headers.py b/scripts/split_headers.py
 index 3fc98b3..7788a33 100644
 --- a/scripts/split_headers.py
