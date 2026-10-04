@@ -2,7 +2,7 @@
 
 GameNative's build of [OpenComposite](https://gitlab.com/znixian/OpenOVR) for OpenVR games running under Wine on Quest.
 
-Every release is built by GitHub Actions on a Windows runner from the upstream commit in `UPSTREAM_COMMIT` with the patches in `patches/` applied. The GameNative app downloads `opencomposite_x64.dll` from a pinned release and verifies its SHA-256, so the shipped binary always traces back to a CI run.
+Every release is built by GitHub Actions on a Windows runner from the upstream commit in `UPSTREAM_COMMIT` with the patches in `patches/` applied. The GameNative app downloads `opencomposite_x64.dll` and `opencomposite_x86.dll` (for 32-bit games) from a pinned release and verifies its SHA-256, so the shipped binary always traces back to a CI run.
 
 ## Patches
 

@@ -23,7 +23,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: C:\VulkanSDK\${{ env.VULKAN_SDK_VERSION }}
-          key: vulkan-sdk-${{ env.VULKAN_SDK_VERSION }}
+          key: vulkan-sdk-${{ env.VULKAN_SDK_VERSION }}-with-32bit
 
       - name: Install Vulkan SDK
         if: steps.vulkan-cache.outputs.cache-hit != 'true'
@@ -32,21 +32,25 @@ jobs:
           $v = $env:VULKAN_SDK_VERSION
           $installer = "$env:RUNNER_TEMP\VulkanSDK-$v-Installer.exe"
           Invoke-WebRequest -Uri "https://sdk.lunarg.com/sdk/download/$v/windows/VulkanSDK-$v-Installer.exe" -OutFile $installer
-          Start-Process -FilePath $installer -ArgumentList @("--accept-licenses", "--default-answer", "--confirm-command", "install") -Wait -NoNewWindow
+          Start-Process -FilePath $installer -ArgumentList @("--accept-licenses", "--default-answer", "--confirm-command", "install", "com.lunarg.vulkan.32bit") -Wait -NoNewWindow
           if (-not (Test-Path "C:\VulkanSDK\$v\Lib\vulkan-1.lib")) { throw "Vulkan SDK install failed" }
+          if (-not (Test-Path "C:\VulkanSDK\$v\Lib32\vulkan-1.lib")) { throw "Vulkan SDK 32-bit libraries are missing" }
 
       - name: Build
         shell: pwsh
         run: |
           $version = if ($env:GITHUB_REF_TYPE -eq "tag") { $env:GITHUB_REF_NAME } else { $env:GITHUB_SHA.Substring(0, 7) }
-          .\build.ps1 -VulkanSdk "C:\VulkanSDK\$env:VULKAN_SDK_VERSION" -Version $version
+          .\build.ps1 -VulkanSdk "C:\VulkanSDK\$env:VULKAN_SDK_VERSION" -Version $version -Arch x64
+          .\build.ps1 -VulkanSdk "C:\VulkanSDK\$env:VULKAN_SDK_VERSION" -Version $version -Arch x86
 
       - uses: actions/upload-artifact@v4
         with:
-          name: opencomposite_x64
+          name: opencomposite
           path: |
             build/out/opencomposite_x64.dll
             build/out/opencomposite_x64.dll.sha256
+            build/out/opencomposite_x86.dll
+            build/out/opencomposite_x86.dll.sha256
           if-no-files-found: error
 
       - name: Release
@@ -55,5 +59,5 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $notes = "OpenComposite upstream $(Get-Content UPSTREAM_COMMIT) plus patches/ in this repo.`n`n``````n$(Get-Content build/out/opencomposite_x64.dll.sha256)`n``````"
-          gh release create $env:GITHUB_REF_NAME build/out/opencomposite_x64.dll build/out/opencomposite_x64.dll.sha256 --title $env:GITHUB_REF_NAME --notes $notes
+          $notes = "OpenComposite upstream $(Get-Content UPSTREAM_COMMIT) plus patches/ in this repo.`n`n``````n$(Get-Content build/out/opencomposite_x64.dll.sha256)`n$(Get-Content build/out/opencomposite_x86.dll.sha256)`n``````"
+          gh release create $env:GITHUB_REF_NAME build/out/opencomposite_x64.dll build/out/opencomposite_x64.dll.sha256 build/out/opencomposite_x86.dll build/out/opencomposite_x86.dll.sha256 --title $env:GITHUB_REF_NAME --notes $notes

@@ -1,7 +1,9 @@
 param(
     [string]$VulkanSdk = $env:VULKAN_SDK,
     [string]$WorkDirectory = (Join-Path $PSScriptRoot "build"),
-    [string]$Version = "dev"
+    [string]$Version = "dev",
+    [ValidateSet("x64", "x86")]
+    [string]$Arch = "x64"
 )
 
 $ErrorActionPreference = "Stop"
@@ -9,14 +11,15 @@ $commit = (Get-Content -LiteralPath (Join-Path $PSScriptRoot "UPSTREAM_COMMIT"))
 $patch = Join-Path $PSScriptRoot "patches\background-support.patch"
 $marker = "Ignoring VRApplication_Background: no shared OpenVR server is available"
 $source = Join-Path $WorkDirectory "source"
-$build = Join-Path $WorkDirectory "cmake"
+$build = Join-Path $WorkDirectory "cmake-$Arch"
 $output = Join-Path $WorkDirectory "out"
 
 if ([string]::IsNullOrWhiteSpace($VulkanSdk)) {
-    throw "Set VULKAN_SDK or pass -VulkanSdk. OpenComposite needs Vulkan headers and Lib\vulkan-1.lib."
+    throw "Set VULKAN_SDK or pass -VulkanSdk. OpenComposite needs Vulkan headers and the vulkan-1.lib import library."
 }
 $vulkanInclude = Join-Path $VulkanSdk "Include"
-$vulkanLibrary = Join-Path $VulkanSdk "Lib\vulkan-1.lib"
+$libDir = if ($Arch -eq "x64") { "Lib" } else { "Lib32" }
+$vulkanLibrary = Join-Path $VulkanSdk "$libDir\vulkan-1.lib"
 if (-not (Test-Path -LiteralPath (Join-Path $vulkanInclude "vulkan\vulkan.h") -PathType Leaf)) {
     throw "Vulkan headers were not found under $vulkanInclude"
 }
@@ -43,26 +46,29 @@ git -C $source apply $patch
 if ($LASTEXITCODE -ne 0) { throw "Could not apply the patch" }
 
 $bundledVulkan = Join-Path $source "libs\vulkan"
-New-Item -ItemType Directory -Force -Path (Join-Path $bundledVulkan "Include"), (Join-Path $bundledVulkan "Lib") | Out-Null
+New-Item -ItemType Directory -Force -Path (Join-Path $bundledVulkan "Include"), (Join-Path $bundledVulkan $libDir) | Out-Null
 Copy-Item -Recurse -Force -Path (Join-Path $vulkanInclude "*") -Destination (Join-Path $bundledVulkan "Include")
-Copy-Item -Force -LiteralPath $vulkanLibrary -Destination (Join-Path $bundledVulkan "Lib\vulkan-1.lib")
+Copy-Item -Force -LiteralPath $vulkanLibrary -Destination (Join-Path $bundledVulkan "$libDir\vulkan-1.lib")
 
 $shortCommit = $commit.Substring(0, 7)
-cmake -S $source -B $build -A x64 -DOC_VERSION="$shortCommit-gamenative-$Version"
+$platform = if ($Arch -eq "x64") { "x64" } else { "Win32" }
+cmake -S $source -B $build -A $platform -DOC_VERSION="$shortCommit-gamenative-$Version"
 if ($LASTEXITCODE -ne 0) { throw "Could not configure OpenComposite" }
 cmake --build $build --config Release --target OCOVR --parallel
 if ($LASTEXITCODE -ne 0) { throw "Could not build OpenComposite" }
 
-$binary = Join-Path $build "bin\Release\vrclient_x64.dll"
+$clientName = if ($Arch -eq "x64") { "vrclient_x64.dll" } else { "vrclient.dll" }
+$machine = if ($Arch -eq "x64") { 0x8664 } else { 0x14c }
+$binary = Join-Path $build "bin\Release\$clientName"
 if (-not (Test-Path -LiteralPath $binary -PathType Leaf)) { throw "OpenComposite output is missing: $binary" }
 $bytes = [System.IO.File]::ReadAllBytes($binary)
 $offset = [BitConverter]::ToInt32($bytes, 0x3c)
-if ([BitConverter]::ToUInt16($bytes, $offset + 4) -ne 0x8664) { throw "Output is not x64" }
+if ([BitConverter]::ToUInt16($bytes, $offset + 4) -ne $machine) { throw "Output is not $Arch" }
 if (-not [System.Text.Encoding]::ASCII.GetString($bytes).Contains($marker)) { throw "Output does not contain the background-app patch" }
 
-$destination = Join-Path $output "opencomposite_x64.dll"
+$destination = Join-Path $output "opencomposite_$Arch.dll"
 Copy-Item -Force -LiteralPath $binary -Destination $destination
 $hash = (Get-FileHash -Algorithm SHA256 -LiteralPath $destination).Hash.ToLowerInvariant()
-Set-Content -NoNewline -LiteralPath "$destination.sha256" -Value "$hash  opencomposite_x64.dll"
+Set-Content -NoNewline -LiteralPath "$destination.sha256" -Value "$hash  opencomposite_$Arch.dll"
 Write-Host "Built $destination"
 Write-Host "sha256 $hash"
