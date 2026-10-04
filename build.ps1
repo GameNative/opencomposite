@@ -52,7 +52,8 @@ Copy-Item -Force -LiteralPath $vulkanLibrary -Destination (Join-Path $bundledVul
 
 $shortCommit = $commit.Substring(0, 7)
 $platform = if ($Arch -eq "x64") { "x64" } else { "Win32" }
-cmake -S $source -B $build -A $platform -DOC_VERSION="$shortCommit-gamenative-$Version"
+$runtime = if ($Arch -eq "x64") { "MultiThreadedDLL" } else { "MultiThreaded" }
+cmake -S $source -B $build -A $platform -DCMAKE_MSVC_RUNTIME_LIBRARY="$runtime" -DOC_VERSION="$shortCommit-gamenative-$Version"
 if ($LASTEXITCODE -ne 0) { throw "Could not configure OpenComposite" }
 cmake --build $build --config Release --target OCOVR --parallel
 if ($LASTEXITCODE -ne 0) { throw "Could not build OpenComposite" }
@@ -65,6 +66,7 @@ $bytes = [System.IO.File]::ReadAllBytes($binary)
 $offset = [BitConverter]::ToInt32($bytes, 0x3c)
 if ([BitConverter]::ToUInt16($bytes, $offset + 4) -ne $machine) { throw "Output is not $Arch" }
 if (-not [System.Text.Encoding]::ASCII.GetString($bytes).Contains($marker)) { throw "Output does not contain the background-app patch" }
+if ($Arch -eq "x86" -and [System.Text.Encoding]::ASCII.GetString($bytes).ToLowerInvariant().Contains("msvcp140.dll")) { throw "x86 output still imports msvcp140.dll" }
 
 $destination = Join-Path $output "opencomposite_$Arch.dll"
 Copy-Item -Force -LiteralPath $binary -Destination $destination
