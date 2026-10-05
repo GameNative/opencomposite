@@ -875,3 +875,30 @@ void BaseSystem::ResetSeatedZeroPose()
 		}
 	}
 }
+
+bool BaseSystem::ComputeDistortionSet(EVREye eEye, EVRDistortionChannel eChannel, bool bAsNormalizedDeviceCoordinates, uint32_t nNumCoordinates, const DistortionCoordinate_t* pInput, DistortionCoordinate_t* pOutput)
+{
+	return false;
+}
+
+bool BaseSystem::GetEyeTrackedFoveationCenter(HmdVector2_t* pNdcLeft, HmdVector2_t* pNdcRight)
+{
+	return false;
+}
+
+bool BaseSystem::GetEyeTrackedFoveationCenterForProjection(const HmdMatrix44_t* pProjMat, HmdVector2_t* pNdc)
+{
+	return false;
+}
+
+bool BaseSystem::PollNextEventWithPoseAndOverlays(ETrackingUniverseOrigin eOrigin, VREvent_t* pEvent, uint32_t uncbVREvent, vr::TrackedDevicePose_t* pTrackedDevicePose, VROverlayHandle_t* pulOverlayHandle)
+{
+	if (pulOverlayHandle)
+		*pulOverlayHandle = k_ulOverlayHandleInvalid;
+	return PollNextEventWithPose(eOrigin, pEvent, uncbVREvent, pTrackedDevicePose);
+}
+
+EVRInitError BaseSystem::SetSDKVersion(uint32_t nVersionMajor, uint32_t nVersionMinor, uint32_t nVersionBuild)
+{
+	return VRInitError_None;
+}

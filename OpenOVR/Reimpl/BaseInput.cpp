@@ -2815,3 +2815,13 @@ ITrackedDevice::TrackedDeviceType BaseInput::ParseAndRemoveHandPrefix(std::strin
 
 	return ITrackedDevice::HAND_NONE;
 }
+
+EVRInputError BaseInput::GetEyeTrackingDataForNextFrame(VRActionHandle_t action, ETrackingUniverseOrigin eOrigin, VREyeTrackingData_t* pEyeTrackingData, uint32_t ulEyeTrackingDataSize)
+{
+	return VRInputError_NoData;
+}
+
+EVRInputError BaseInput::GetEyeTrackingDataRelativeToNow(VRActionHandle_t action, ETrackingUniverseOrigin eOrigin, float fPredictedSecondsFromNow, VREyeTrackingData_t* pEyeTrackingData, uint32_t ulEyeTrackingDataSize)
+{
+	return VRInputError_NoData;
+}

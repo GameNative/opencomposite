@@ -211,4 +211,6 @@ public:
 	 * focus once it starts rendering, but it will appear here once it calls VR_Init with the Scene application
 	 * type. */
 	uint32_t GetCurrentSceneProcessId();
+
+	EVRApplicationError RegisterSubprocess(uint32_t nPid);
 };

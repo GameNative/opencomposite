@@ -74,6 +74,12 @@ struct OOVR_Compositor_CumulativeStats {
 	uint32_t m_nNumReprojectedFramesTimedOut;
 };
 
+enum OOVR_EVRCompositorTextureUsage {
+	VRCompositorTextureUsage_Left = 0,
+	VRCompositorTextureUsage_Right = 1,
+	VRCompositorTextureUsage_Both = 2,
+};
+
 enum OOVR_EVRCompositorTimingMode {
 	VRCompositorTimingMode_Implicit = 0,
 	VRCompositorTimingMode_Explicit_RuntimePerformsPostPresentHandoff = 1,
@@ -364,4 +370,7 @@ public:
 
 	/** Get the most up-to-date predicted (or recorded - up to 100ms old) set of poses for a given frame id. */
 	ovr_enum_t GetPosesForFrame(uint32_t unPosePredictionID, vr::TrackedDevicePose_t* pPoseArray, uint32_t unPoseArrayCount);
+
+	ovr_enum_t GetSubmitTexture(vr::Texture_t* pOutTexture, bool* pNeedsFlush, OOVR_EVRCompositorTextureUsage eUsage, const vr::Texture_t* pTexture,
+	    const vr::VRTextureBounds_t* pBounds = nullptr, vr::EVRSubmitFlags nSubmitFlags = vr::Submit_Default);
 };

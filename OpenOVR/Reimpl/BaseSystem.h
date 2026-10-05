@@ -390,4 +390,10 @@ public:
 	/** Performance Testing applications can call this to note on the Perf Test Report when they've shifted
 	 * their fidelity to a new mode. */
 	void PerformanceTestReportFidelityLevelChange(int nFidelityLevel);
+
+	bool ComputeDistortionSet(vr::EVREye eEye, vr::EVRDistortionChannel eChannel, bool bAsNormalizedDeviceCoordinates, uint32_t nNumCoordinates, const vr::DistortionCoordinate_t* pInput, vr::DistortionCoordinate_t* pOutput);
+	bool GetEyeTrackedFoveationCenter(vr::HmdVector2_t* pNdcLeft, vr::HmdVector2_t* pNdcRight);
+	bool GetEyeTrackedFoveationCenterForProjection(const vr::HmdMatrix44_t* pProjMat, vr::HmdVector2_t* pNdc);
+	bool PollNextEventWithPoseAndOverlays(vr::ETrackingUniverseOrigin eOrigin, vr::VREvent_t* pEvent, uint32_t uncbVREvent, vr::TrackedDevicePose_t* pTrackedDevicePose, vr::VROverlayHandle_t* pulOverlayHandle);
+	vr::EVRInitError SetSDKVersion(uint32_t nVersionMajor, uint32_t nVersionMinor, uint32_t nVersionBuild);
 };

@@ -973,3 +973,13 @@ EVROverlayError BaseOverlay::WaitFrameSync(uint32_t nTimeoutMs)
 {
 	STUBBED();
 }
+
+EVROverlayError BaseOverlay::CreateSubviewOverlay(VROverlayHandle_t parentOverlayHandle, const char* pchSubviewOverlayKey, const char* pchSubviewOverlayName, VROverlayHandle_t* pSubviewOverlayHandle)
+{
+	return VROverlayError_RequestFailed;
+}
+
+EVROverlayError BaseOverlay::SetSubviewPosition(VROverlayHandle_t ulOverlayHandle, float fX, float fY)
+{
+	return VROverlayError_RequestFailed;
+}

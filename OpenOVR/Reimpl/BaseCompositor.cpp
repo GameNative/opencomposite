@@ -600,3 +600,10 @@ ovr_enum_t BaseCompositor::GetPosesForFrame(uint32_t unPosePredictionID, Tracked
 {
 	STUBBED();
 }
+
+ovr_enum_t BaseCompositor::GetSubmitTexture(vr::Texture_t* pOutTexture, bool* pNeedsFlush, OOVR_EVRCompositorTextureUsage eUsage, const vr::Texture_t* pTexture,
+    const vr::VRTextureBounds_t* pBounds, vr::EVRSubmitFlags nSubmitFlags)
+{
+	// No shared submit texture: callers fall back to Submit().
+	return VRCompositorError_RequestFailed;
+}
