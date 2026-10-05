@@ -1339,6 +1339,13 @@ EVRInputError BaseInput::UpdateActionState(VR_ARRAY_COUNT(unSetCount) VRActiveAc
 	syncInfo.countActiveActionSets = aas.size();
 	OOVR_FAILED_XR_ABORT(xrSyncActions(xr_session.get(), &syncInfo));
 	syncSerial++;
+	{
+		static int lastSetCount = -1;
+		if ((int)unSetCount != lastSetCount) {
+			lastSetCount = (int)unSetCount;
+			OOVR_LOGF("DIAG UpdateActionState sets=%u serial=%d", unSetCount, syncSerial);
+		}
+	}
 
 	for (size_t i = 0; i < allSubactionPaths.size(); i++) {
 		auto handDevice = BackendManager::Instance().GetBackendInstance()->GetDeviceByHand(static_cast<ITrackedDevice::TrackedDeviceType>(i));
@@ -1619,6 +1626,23 @@ EVRInputError BaseInput::GetDigitalActionData(VRActionHandle_t action, InputDigi
 		pActionData->bChanged = state.changedSinceLastSync;
 		// TODO implement fUpdateTime
 		pActionData->activeOrigin = activeOriginFromSubaction(act, allSubactionPathNames[i].c_str());
+	}
+
+	if (act->fullName.find("triggerclick") != std::string::npos) {
+		static std::map<std::pair<std::string, VRInputValueHandle_t>, int> lastDigital;
+		int key = (pActionData->bState ? 1 : 0) | (pActionData->bActive ? 2 : 0);
+		auto mapKey = std::make_pair(act->fullName, ulRestrictToDevice);
+		auto found = lastDigital.find(mapKey);
+		if (found == lastDigital.end() || found->second != key) {
+			lastDigital[mapKey] = key;
+			std::string subStates;
+			for (const auto& entry : act->analog_to_digital_last_state_subaction) {
+				subStates += " sub" + std::to_string(entry.first) + "=" + std::to_string(entry.second);
+			}
+			OOVR_LOGF("DIAG digital %s restrict=%llu state=%d active=%d serial=%d digitalSerial=%d%s", act->fullName.c_str(),
+			    (unsigned long long)ulRestrictToDevice, pActionData->bState ? 1 : 0, pActionData->bActive ? 1 : 0, syncSerial,
+			    syncSerialDigital, subStates.c_str());
+		}
 	}
 
 	if (pActionData->bActive) {
