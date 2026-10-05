@@ -106,6 +106,13 @@ VR_INTERFACE void* VR_CALLTYPE VR_GetGenericInterface(const char* interfaceVersi
 		return nullptr;
 	}
 
+	// Hack for Half-Life: Alyx, which asks for this SteamVR-internal IPC interface.
+	if (!strncmp("IVRIPCResourceManagerClient_", interfaceVersion, strlen("IVRIPCResourceManagerClient_"))) {
+		if (error)
+			*error = VRInitError_Init_InterfaceNotFound;
+		return nullptr;
+	}
+
 	bool valid_apptypes_success;
 	uint64_t valid_apptypes = GetInterfaceFlagsByName(interfaceVersion, "APPTYPE", &valid_apptypes_success);
 
