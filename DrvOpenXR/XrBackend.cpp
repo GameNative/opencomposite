@@ -390,6 +390,8 @@ void XrBackend::WaitForTrackingData()
 		return;
 	}
 
+	frameThread = std::this_thread::get_id();
+
 	XrFrameWaitInfo waitInfo{ XR_TYPE_FRAME_WAIT_INFO };
 	XrFrameState state{ XR_TYPE_FRAME_STATE };
 
@@ -599,6 +601,14 @@ IBackend::openvr_enum_t XrBackend::SetSkyboxOverride(const vr::Texture_t* pTextu
 {
 	// Needed for rFactor2 loading screens
 	if (unTextureCount && pTextures) {
+		if (frameThread != std::thread::id() && frameThread != std::this_thread::get_id()) {
+			if (!loggedSkyboxThread) {
+				OOVR_LOG("Ignoring skybox override from a thread other than the frame thread");
+				loggedSkyboxThread = true;
+			}
+			return 0;
+		}
+
 		CheckOrInitCompositors(pTextures);
 
 		if (!sessionActive || !usingApplicationGraphicsAPI)
