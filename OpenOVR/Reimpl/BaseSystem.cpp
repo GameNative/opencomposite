@@ -835,7 +835,7 @@ uint32_t BaseSystem::GetAppContainerFilePaths(VR_OUT_STRING() char* pchBuffer, u
 
 const char* BaseSystem::GetRuntimeVersion()
 {
-	return "1.16.8";
+	return "2.15.6";
 }
 
 DistortionCoordinates_t BaseSystem::ComputeDistortion(EVREye eEye, float fU, float fV)
