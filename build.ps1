@@ -55,6 +55,8 @@ git -C $source apply (Join-Path $PSScriptRoot "patches\output-device-luid.patch"
 if ($LASTEXITCODE -ne 0) { throw "Could not apply the output device patch" }
 git -C $source apply (Join-Path $PSScriptRoot "patches\runtime-version.patch")
 if ($LASTEXITCODE -ne 0) { throw "Could not apply the runtime version patch" }
+git -C $source apply (Join-Path $PSScriptRoot "patches\control-panel-export.patch")
+if ($LASTEXITCODE -ne 0) { throw "Could not apply the control panel export patch" }
 $openvrHeader = Join-Path $source "OpenVRHeaders\openvr-2.15.6.h"
 Invoke-WebRequest -Uri "https://raw.githubusercontent.com/ValveSoftware/openvr/$openvrHeaderCommit/headers/openvr.h" -OutFile $openvrHeader
 if ((Get-FileHash -Algorithm SHA256 -LiteralPath $openvrHeader).Hash.ToLowerInvariant() -ne $openvrHeaderSha256) { throw "OpenVR 2.15.6 header checksum mismatch" }
