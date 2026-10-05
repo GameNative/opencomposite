@@ -1,3 +1,53 @@
+# GameNative fork
+
+This is GameNative's fork of [OpenComposite](https://gitlab.com/znixian/OpenOVR), used for OpenVR games running under Wine on standalone headsets. The upstream README follows below.
+
+The GameNative app downloads `opencomposite_x64.dll` and `opencomposite_x86.dll` (for 32-bit games) from a pinned release of this repository and verifies their SHA-256, so every shipped binary traces back to a CI run.
+
+## Changes from upstream
+
+The GameNative commits sit on top of upstream history, so `git log upstream/master..main` lists them. They cover:
+
+- `VR_Init` with `VRApplication_Background` returns `VRInitError_Init_NoServerForBackgroundApp` on Windows. GameNative embeds OpenComposite in each Wine process and has no shared vrserver, so helper processes must not open a competing OpenXR session.
+- The OpenVR 2.15.6 interfaces, `IVRIPCResourceManagerClient` lookup, `VRControlPanel` export and SteamVR 2.15.6 runtime version that Half-Life: Alyx needs.
+- `GetOutputDevice` returns the D3D adapter LUID.
+
+## Merging upstream
+
+```sh
+git remote add upstream https://gitlab.com/znixian/OpenOVR.git
+git fetch upstream
+git checkout -b merge-upstream main
+git merge upstream/master
+git submodule update --init --recursive
+```
+
+Resolve conflicts, push the branch, and let CI build it before merging into `main`.
+
+## Releasing
+
+1. Merge changes into `main`. Every push builds both DLLs and uploads them as a workflow artifact.
+2. Tag the commit: `git tag v11 && git push origin v11`. The workflow builds again and publishes a GitHub release with the DLLs and their `.sha256` files. Never move a published tag; use a new one.
+3. Point the GameNative staging scripts at the new release and update the pinned hashes.
+
+The runtime reports its version as `<commit>-gamenative-<tag>`.
+
+## Building locally
+
+Needs Windows, Visual Studio 2022 with the C++ workload, CMake, Git, and the Vulkan SDK.
+
+```powershell
+git submodule update --init --recursive
+.\gamenative\build.ps1 -VulkanSdk C:\VulkanSDK\1.3.296.0 -Arch x64
+.\gamenative\build.ps1 -VulkanSdk C:\VulkanSDK\1.3.296.0 -Arch x86
+```
+
+Output lands in `build\out\`. MSVC builds are not bit-for-bit reproducible across machines, so a local hash will not match the release hash. Ship the release one.
+
+OpenComposite is GPL-3.0. This repository is the corresponding source for the released binaries.
+
+---
+
 # OpenComposite (OpenXR) - Play SteamVR games without SteamVR!
 [![Discord](https://img.shields.io/discord/499733750209314816.svg?style=for-the-badge&logo=discord&label=discord)](https://discord.gg/zYA6Tzs)
 [![AppVeyor](https://img.shields.io/appveyor/ci/ZNix/openovr.svg?style=for-the-badge&logo=appveyor)](https://ci.appveyor.com/project/ZNix/openovr)
