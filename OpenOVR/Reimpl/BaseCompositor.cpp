@@ -318,9 +318,6 @@ void BaseCompositor::PostPresentHandoff()
 
 bool BaseCompositor::GetFrameTiming(OOVR_Compositor_FrameTiming* pTiming, uint32_t unFramesAgo)
 {
-	// "Sets oldest timing info if nFramesAgo is larger than the stored history." So if our history
-	// of timing records is only 1 we can just return that.
-
 	return BackendManager::Instance().GetFrameTiming(pTiming, unFramesAgo);
 
 	// TODO fill in the m_nNumVSyncsReadyForUse and uint32_t m_nNumVSyncsToFirstView fields, but only
@@ -329,11 +326,7 @@ bool BaseCompositor::GetFrameTiming(OOVR_Compositor_FrameTiming* pTiming, uint32
 
 uint32_t BaseCompositor::GetFrameTimings(OOVR_Compositor_FrameTiming* pTiming, uint32_t nFrames)
 {
-	// This is a request to fill out an array of timing data. However only an arbitrary number
-	// of records are available with number being filled returned. In the case of only one record
-	// being available we can just send the most recent timing data and return 1.
-	bool populated = BackendManager::Instance().GetFrameTiming(pTiming, 1);
-	return populated ? 1 : 0;
+	return BackendManager::Instance().GetFrameTimings(pTiming, nFrames);
 }
 
 bool BaseCompositor::GetFrameTiming(vr::Compositor_FrameTiming* pTiming, uint32_t unFramesAgo)
@@ -348,12 +341,12 @@ uint32_t BaseCompositor::GetFrameTimings(vr::Compositor_FrameTiming* pTiming, ui
 
 float BaseCompositor::GetFrameTimeRemaining()
 {
-	STUBBED();
+	return BackendManager::Instance().GetFrameTimeRemaining();
 }
 
 void BaseCompositor::GetCumulativeStats(OOVR_Compositor_CumulativeStats* pStats, uint32_t nStatsSizeInBytes)
 {
-	STUBBED();
+	BackendManager::Instance().GetCumulativeStats(pStats, nStatsSizeInBytes);
 }
 
 void BaseCompositor::FadeToColor(float fSeconds, float fRed, float fGreen, float fBlue, float fAlpha, bool bBackground)

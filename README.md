@@ -11,6 +11,7 @@ The GameNative commits sit on top of upstream history, so `git log upstream/mast
 - `VR_Init` with `VRApplication_Background` returns `VRInitError_Init_NoServerForBackgroundApp` on Windows. GameNative embeds OpenComposite in each Wine process and has no shared vrserver, so helper processes must not open a competing OpenXR session.
 - The OpenVR 2.15.6 interfaces, `IVRIPCResourceManagerClient` lookup, `VRControlPanel` export and SteamVR 2.15.6 runtime version that Half-Life: Alyx needs.
 - `GetOutputDevice` returns the D3D adapter LUID.
+- `GetFrameTiming`, `GetFrameTimings`, `GetCumulativeStats` and `GetFrameTimeRemaining` report measured frame intervals, missed vsyncs and an estimated render time instead of constants, so games with dynamic resolution can react to the real frame rate.
 
 ## Merging upstream
 

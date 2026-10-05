@@ -72,6 +72,16 @@ struct OOVR_Compositor_CumulativeStats {
 	uint32_t m_nNumFramePresentsTimedOut;
 	uint32_t m_nNumDroppedFramesTimedOut;
 	uint32_t m_nNumReprojectedFramesTimedOut;
+
+	/** For items in this section, divide all the values by m_nNumFrameSubmits. */
+	uint32_t m_nNumFrameSubmits;
+	double m_flSumCompositorCPUTimeMS;
+	double m_flSumCompositorGPUTimeMS;
+	double m_flSumTargetFrameTimes;
+	double m_flSumApplicationCPUTimeMS;
+	double m_flSumApplicationGPUTimeMS;
+
+	uint32_t m_nNumFramesWithDepth; // total frames submitted with depth by the current application
 };
 
 enum OOVR_EVRCompositorTextureUsage {

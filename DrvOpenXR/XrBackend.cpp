@@ -9,6 +9,8 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#else
+#include <unistd.h>
 #endif
 
 #if defined(SUPPORT_GL) && !defined(_WIN32)
@@ -44,9 +46,12 @@
 #include <algorithm>
 #include <chrono>
 #include <cinttypes>
+#include <cmath>
 #include <mutex>
 
 using namespace vr;
+
+static constexpr double compositorShareMs = 1.0;
 
 std::mutex inputRestartMutex;
 std::unique_ptr<TemporaryGraphics> XrBackend::temporaryGraphics = nullptr;
@@ -390,6 +395,7 @@ void XrBackend::WaitForTrackingData()
 
 	{
 		auto lock = xr_session.lock_shared();
+		auto waitStart = std::chrono::steady_clock::now();
 		OOVR_FAILED_XR_ABORT(xrWaitFrame(xr_session.get(), &waitInfo, &state));
 		xr_gbl->nextPredictedFrameTime = state.predictedDisplayTime;
 
@@ -398,6 +404,11 @@ void XrBackend::WaitForTrackingData()
 
 		XrFrameBeginInfo beginInfo{ XR_TYPE_FRAME_BEGIN_INFO };
 		OOVR_FAILED_XR_ABORT(xrBeginFrame(xr_session.get(), &beginInfo));
+
+		lastWaitFrameReturnTime = std::chrono::steady_clock::now();
+		waitFrameBlockedMs += std::chrono::duration<double, std::milli>(lastWaitFrameReturnTime - waitStart).count();
+		if (state.predictedDisplayPeriod > 0)
+			displayPeriodMs = (double)state.predictedDisplayPeriod / 1000000.0;
 	}
 
 	xr_gbl->ClearCachedViews();
@@ -542,10 +553,46 @@ void XrBackend::SubmitFrames(bool showSkybox, bool postPresent)
 		sys->_OnPostFrame();
 	}
 
-	auto now = std::chrono::system_clock::now().time_since_epoch();
-	frameSubmitTimeUs = (double)std::chrono::duration_cast<std::chrono::microseconds>(now).count() / 1000000.0;
+	RecordFrameTiming();
+}
 
+void XrBackend::RecordFrameTiming()
+{
+	auto now = std::chrono::steady_clock::now();
 	nFrameIndex++;
+
+	FrameTimingRecord record;
+	record.frameIndex = nFrameIndex;
+	record.submitTimeSeconds = std::chrono::duration<double>(now.time_since_epoch()).count();
+
+	double intervalMs = displayPeriodMs;
+	if (frameTimingCount != 0)
+		intervalMs = std::chrono::duration<double, std::milli>(now - lastFrameSubmitTime).count();
+	lastFrameSubmitTime = now;
+
+	double appWorkMs = (std::max)(0.0, intervalMs - waitFrameBlockedMs);
+	waitFrameBlockedMs = 0.0;
+
+	if (displayPeriodMs > 0.0)
+		record.numPresents = (uint32_t)(std::max)(1.0, std::ceil(intervalMs / displayPeriodMs - 0.25));
+
+	if (record.numPresents > 1)
+		appWorkMs = (std::max)(appWorkMs, intervalMs - compositorShareMs);
+	else
+		appWorkMs = (std::min)(appWorkMs, (std::max)(0.0, intervalMs - compositorShareMs));
+
+	record.intervalMs = (float)intervalMs;
+	record.appWorkMs = (float)appWorkMs;
+
+	std::lock_guard<std::mutex> lock(frameTimingMutex);
+	frameTimingHistory[frameTimingCount % frameTimingHistorySize] = record;
+	frameTimingCount++;
+
+	totalFrameSubmits++;
+	totalFramePresents += record.numPresents;
+	totalDroppedFrames += record.numPresents - 1;
+	sumTargetFrameTimesMs += displayPeriodMs;
+	sumAppWorkMs += appWorkMs;
 }
 
 IBackend::openvr_enum_t XrBackend::SetSkyboxOverride(const vr::Texture_t* pTextures, uint32_t unTextureCount)
@@ -619,6 +666,35 @@ void XrBackend::ClearSkyboxOverride()
 
 /* Misc compositor */
 
+void XrBackend::FillFrameTiming(OOVR_Compositor_FrameTiming* pTiming, const FrameTimingRecord& record)
+{
+	// Zero everything except the size field
+	memset(reinterpret_cast<unsigned char*>(pTiming) + sizeof(pTiming->m_nSize), 0, pTiming->m_nSize - sizeof(pTiming->m_nSize));
+
+	pTiming->m_flSystemTimeInSeconds = record.submitTimeSeconds;
+	pTiming->m_nFrameIndex = record.frameIndex;
+
+	pTiming->m_nNumFramePresents = record.numPresents;
+	pTiming->m_nNumMisPresented = record.numPresents > 1 ? 1 : 0;
+	pTiming->m_nNumDroppedFrames = record.numPresents - 1;
+	pTiming->m_nReprojectionFlags = 0;
+
+	float compositorMs = (float)compositorShareMs;
+	pTiming->m_flPreSubmitGpuMs = record.appWorkMs;
+	pTiming->m_flPostSubmitGpuMs = 0.0f;
+	pTiming->m_flTotalRenderGpuMs = record.appWorkMs + compositorMs;
+	pTiming->m_flCompositorRenderGpuMs = compositorMs;
+	pTiming->m_flCompositorRenderCpuMs = 0.5f;
+	pTiming->m_flCompositorIdleCpuMs = (std::max)(0.0f, record.intervalMs - pTiming->m_flTotalRenderGpuMs);
+
+	pTiming->m_flClientFrameIntervalMs = record.intervalMs;
+	pTiming->m_flPresentCallCpuMs = 0.0f;
+	pTiming->m_flWaitForPresentCpuMs = 0.0f;
+	pTiming->m_flSubmitFrameMs = 0.0f;
+
+	GetPrimaryHMD()->GetPose(vr::ETrackingUniverseOrigin::TrackingUniverseSeated, &pTiming->m_HmdPose, ETrackingStateType::TrackingStateType_Rendering);
+}
+
 /**
  * Get frame timing information to be passed to the application
  *
@@ -626,51 +702,84 @@ void XrBackend::ClearSkyboxOverride()
  */
 bool XrBackend::GetFrameTiming(OOVR_Compositor_FrameTiming* pTiming, uint32_t unFramesAgo)
 {
-	// Zero everything except the size field
-	memset(reinterpret_cast<unsigned char*>(pTiming) + sizeof(pTiming->m_nSize), 0, pTiming->m_nSize - sizeof(pTiming->m_nSize));
+	if (pTiming->m_nSize < sizeof(IVRCompositor_018::Compositor_FrameTiming))
+		return false;
 
-	if (pTiming->m_nSize >= sizeof(IVRCompositor_018::Compositor_FrameTiming)) {
-		pTiming->m_flSystemTimeInSeconds = frameSubmitTimeUs;
-		pTiming->m_nFrameIndex = nFrameIndex;
-
-		// A lot of these values we can't get the data for so just use sensible values
-		pTiming->m_nNumFramePresents = 1; // number of times this frame was presented
-		pTiming->m_nNumMisPresented = 0; // number of times this frame was presented on a vsync other than it was originally predicted to
-		pTiming->m_nNumDroppedFrames = 0; // number of additional times previous frame was scanned out
-		pTiming->m_nReprojectionFlags = 0;
-
-		// Just use sensible values until GPU timers implemented
-		pTiming->m_flPreSubmitGpuMs = 8.0f;
-		pTiming->m_flPostSubmitGpuMs = 1.0f;
-		pTiming->m_flTotalRenderGpuMs = 9.0f;
-
-		// Use very conservative guesses for these. They are used in F1 22 for dynamic resolution calculations but are not something that is provided
-		// through OpenXR. Using conservative values will give a bit more headroom for the game to target realistic frame times.
-		pTiming->m_flCompositorRenderGpuMs = 1.5f; // time spend performing distortion correction, rendering chaperone, overlays, etc.
-		pTiming->m_flCompositorRenderCpuMs = 3.0f; // time spent on cpu submitting the above work for this frame
-
-		pTiming->m_flCompositorIdleCpuMs = 0.1f;
-
-		/** Miscellaneous measured intervals. */
-		pTiming->m_flClientFrameIntervalMs = 11.1f; // time between calls to WaitGetPoses
-		pTiming->m_flPresentCallCpuMs = 0.0f; // time blocked on call to present (usually 0.0, but can go long)
-		pTiming->m_flWaitForPresentCpuMs = 0.0f; // time spent spin-waiting for frame index to change (not near-zero indicates wait object failure)
-		pTiming->m_flSubmitFrameMs = 0.0f; // time spent in IVRCompositor::Submit (not near-zero indicates driver issue)
-
-		/** The following are all relative to this frame's SystemTimeInSeconds */
-		pTiming->m_flWaitGetPosesCalledMs = 0.0f;
-		pTiming->m_flNewPosesReadyMs = 0.0f;
-		pTiming->m_flNewFrameReadyMs = 0.0f; // second call to IVRCompositor::Submit
-		pTiming->m_flCompositorUpdateStartMs = 0.0f;
-		pTiming->m_flCompositorUpdateEndMs = 0.0f;
-		pTiming->m_flCompositorRenderStartMs = 0.0f;
-
-		GetPrimaryHMD()->GetPose(vr::ETrackingUniverseOrigin::TrackingUniverseSeated, &pTiming->m_HmdPose, ETrackingStateType::TrackingStateType_Rendering);
-
-		return true;
+	FrameTimingRecord record;
+	{
+		std::lock_guard<std::mutex> lock(frameTimingMutex);
+		uint32_t available = (std::min)(frameTimingCount, frameTimingHistorySize);
+		if (available != 0) {
+			uint32_t back = (std::min)(unFramesAgo > 0 ? unFramesAgo - 1 : 0, available - 1);
+			record = frameTimingHistory[(frameTimingCount - 1 - back) % frameTimingHistorySize];
+		}
 	}
 
-	return false;
+	FillFrameTiming(pTiming, record);
+	return true;
+}
+
+uint32_t XrBackend::GetFrameTimings(OOVR_Compositor_FrameTiming* pTiming, uint32_t nFrames)
+{
+	if (!pTiming || nFrames == 0)
+		return 0;
+
+	uint32_t size = pTiming->m_nSize;
+	if (size < sizeof(IVRCompositor_018::Compositor_FrameTiming))
+		return 0;
+
+	FrameTimingRecord records[frameTimingHistorySize];
+	uint32_t count;
+	{
+		std::lock_guard<std::mutex> lock(frameTimingMutex);
+		count = (std::min)(nFrames, (std::min)(frameTimingCount, frameTimingHistorySize));
+		for (uint32_t i = 0; i < count; i++)
+			records[i] = frameTimingHistory[(frameTimingCount - count + i) % frameTimingHistorySize];
+	}
+
+	unsigned char* base = reinterpret_cast<unsigned char*>(pTiming);
+	for (uint32_t i = 0; i < count; i++) {
+		OOVR_Compositor_FrameTiming* timing = reinterpret_cast<OOVR_Compositor_FrameTiming*>(base + (size_t)i * size);
+		timing->m_nSize = size;
+		FillFrameTiming(timing, records[i]);
+	}
+
+	return count;
+}
+
+float XrBackend::GetFrameTimeRemaining()
+{
+	if (displayPeriodMs <= 0.0)
+		return 0.0f;
+
+	double elapsedMs = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - lastWaitFrameReturnTime).count();
+	return (float)((std::max)(0.0, displayPeriodMs - compositorShareMs - elapsedMs) / 1000.0);
+}
+
+void XrBackend::GetCumulativeStats(OOVR_Compositor_CumulativeStats* pStats, uint32_t nStatsSizeInBytes)
+{
+	if (!pStats)
+		return;
+
+	OOVR_Compositor_CumulativeStats stats = {};
+#ifdef _WIN32
+	stats.m_nPid = GetCurrentProcessId();
+#else
+	stats.m_nPid = (uint32_t)getpid();
+#endif
+
+	{
+		std::lock_guard<std::mutex> lock(frameTimingMutex);
+		stats.m_nNumFramePresents = totalFramePresents;
+		stats.m_nNumDroppedFrames = totalDroppedFrames;
+		stats.m_nNumFrameSubmits = totalFrameSubmits;
+		stats.m_flSumTargetFrameTimes = sumTargetFrameTimesMs;
+		stats.m_flSumApplicationGPUTimeMS = sumAppWorkMs;
+		stats.m_flSumCompositorGPUTimeMS = compositorShareMs * totalFrameSubmits;
+	}
+
+	memset(pStats, 0, nStatsSizeInBytes);
+	memcpy(pStats, &stats, (std::min)((size_t)nStatsSizeInBytes, sizeof(stats)));
 }
 
 /* D3D Mirror textures */

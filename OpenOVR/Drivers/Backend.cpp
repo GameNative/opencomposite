@@ -135,6 +135,21 @@ bool BackendManager::GetFrameTiming(OOVR_Compositor_FrameTiming* pTiming, uint32
 	return backend->GetFrameTiming(pTiming, unFramesAgo);
 }
 
+uint32_t BackendManager::GetFrameTimings(OOVR_Compositor_FrameTiming* pTiming, uint32_t nFrames)
+{
+	return backend->GetFrameTimings(pTiming, nFrames);
+}
+
+float BackendManager::GetFrameTimeRemaining()
+{
+	return backend->GetFrameTimeRemaining();
+}
+
+void BackendManager::GetCumulativeStats(OOVR_Compositor_CumulativeStats* pStats, uint32_t nStatsSizeInBytes)
+{
+	return backend->GetCumulativeStats(pStats, nStatsSizeInBytes);
+}
+
 #if defined(SUPPORT_DX11)
 IBackend::openvr_enum_t BackendManager::GetMirrorTextureD3D11(vr::EVREye eEye, void* pD3D11DeviceOrResource, void** ppD3D11ShaderResourceView)
 {

@@ -208,6 +208,12 @@ public:
 	 */                                                                                                                                            \
 	PREPEND bool GetFrameTiming(OOVR_Compositor_FrameTiming* pTiming, uint32_t unFramesAgo) APPEND;                                                \
                                                                                                                                                    \
+	PREPEND uint32_t GetFrameTimings(OOVR_Compositor_FrameTiming* pTiming, uint32_t nFrames) APPEND;                                               \
+                                                                                                                                                   \
+	PREPEND float GetFrameTimeRemaining() APPEND;                                                                                                  \
+                                                                                                                                                   \
+	PREPEND void GetCumulativeStats(OOVR_Compositor_CumulativeStats* pStats, uint32_t nStatsSizeInBytes) APPEND;                                   \
+                                                                                                                                                   \
 	/* D3D Mirror textures */                                                                                                                      \
 	/* #if defined(SUPPORT_DX) */                                                                                                                  \
 	PREPEND IBackend::openvr_enum_t GetMirrorTextureD3D11(vr::EVREye eEye, void* pD3D11DeviceOrResource, void** ppD3D11ShaderResourceView) APPEND; \

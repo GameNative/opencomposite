@@ -9,6 +9,7 @@
 #include "XrController.h"
 #include "XrHMD.h"
 
+#include <chrono>
 #include <memory>
 #include <vector>
 #include <mutex>
@@ -123,7 +124,32 @@ private:
 	// Number of frames rendered for use in frame timing data
 	uint32_t nFrameIndex = 0;
 
-	double frameSubmitTimeUs = 0.0;
+	struct FrameTimingRecord {
+		uint32_t frameIndex = 0;
+		double submitTimeSeconds = 0.0;
+		float intervalMs = 0.0f;
+		float appWorkMs = 0.0f;
+		uint32_t numPresents = 1;
+	};
+
+	static constexpr uint32_t frameTimingHistorySize = 128;
+	FrameTimingRecord frameTimingHistory[frameTimingHistorySize];
+	uint32_t frameTimingCount = 0;
+	std::mutex frameTimingMutex;
+
+	std::chrono::steady_clock::time_point lastFrameSubmitTime;
+	std::chrono::steady_clock::time_point lastWaitFrameReturnTime;
+	double waitFrameBlockedMs = 0.0;
+	double displayPeriodMs = 0.0;
+
+	uint32_t totalFramePresents = 0;
+	uint32_t totalDroppedFrames = 0;
+	uint32_t totalFrameSubmits = 0;
+	double sumTargetFrameTimesMs = 0.0;
+	double sumAppWorkMs = 0.0;
+
+	void RecordFrameTiming();
+	void FillFrameTiming(OOVR_Compositor_FrameTiming* pTiming, const FrameTimingRecord& record);
 
 	// Action set and action used for querying for the interaction profile
 	inline static XrActionSet infoSet = XR_NULL_HANDLE;
