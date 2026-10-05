@@ -254,6 +254,17 @@ VR_INTERFACE uint32_t VR_CALLTYPE VR_InitInternal2(EVRInitError* peError, EVRApp
 		return current_init_token;
 	}
 
+#ifdef _WIN32
+	// GameNative embeds OpenComposite in each Wine process and has no shared
+	// vrserver for background clients. Do not let helpers allocate a competing
+	// OpenXR session; report the spec-defined benign background-app result.
+	if (eApplicationType == VRApplication_Background) {
+		OOVR_LOG("Ignoring VRApplication_Background: no shared OpenVR server is available");
+		if (peError) *peError = VRInitError_Init_NoServerForBackgroundApp;
+		return current_init_token;
+	}
+#endif
+
 	if (eApplicationType != VRApplication_Scene)
 #ifndef _WIN32
 		if (eApplicationType != VRApplication_Background) // Proton uses this
